@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💩 TimeShit Generator</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #faf8f5; color: #333; padding: 20px;
+            min-height: 100vh; position: relative; overflow-x: hidden;
+        }
+        .poop-bg { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+        .poop-bg span {
+            position: absolute; font-size: 28px; opacity: 1; animation: floatPoop 20s linear infinite;
+            transform: translateY(110vh);
+        }
+        @keyframes floatPoop {
+            0% { transform: translateY(110vh) rotate(0deg); }
+            100% { transform: translateY(-10vh) rotate(360deg); }
+        }
+        .container { max-width: 900px; margin: 0 auto; position: relative; z-index: 1; }
+        h1 { text-align: center; margin-bottom: 20px; font-size: 28px; font-weight: 700; }
+        .card { background: #fff; border-radius: 12px; padding: 24px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+        .card h2 { font-size: 16px; margin-bottom: 16px; color: #666; font-weight: 600; }
+        .row { display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
+        .field { display: flex; flex-direction: column; gap: 4px; }
+        .field label { font-size: 13px; color: #777; font-weight: 500; }
+        select, input[type="date"] {
+            padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px;
+            background: #fff; min-width: 180px;
+        }
+        select:focus, input:focus { outline: none; border-color: #8B6914; }
+        .sub-label { font-size: 14px; color: #888; font-weight: 500; margin-top: 8px; margin-bottom: 8px; }
+
+        .btn { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; }
+        .btn-generate {
+            background: linear-gradient(135deg, #8B6914, #A0522D); color: #fff; font-size: 17px;
+            padding: 14px 36px; display: block; margin: 0 auto; border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(139,105,20,.3); transition: all .15s;
+        }
+        .btn-generate:hover { box-shadow: 0 6px 16px rgba(139,105,20,.45); transform: translateY(-1px); }
+        .btn-generate:active { transform: translateY(0); }
+        .btn-add-client { background: #f5f0e0; color: #8B6914; margin-top: 12px; }
+        .btn-add-client:hover { background: #efe8d0; }
+
+        /* Splitter bar */
+        .splitter-wrap { margin-bottom: 20px; }
+        .splitter-label { font-size: 13px; color: #999; margin-bottom: 6px; }
+        .splitter-bar {
+            display: flex; height: 36px; border-radius: 8px; overflow: hidden; border: 1px solid #ddd;
+            user-select: none; position: relative;
+        }
+        .splitter-seg {
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden;
+            min-width: 30px; position: relative;
+        }
+        .splitter-seg .seg-label { pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,.3); }
+        .splitter-handle {
+            position: absolute; right: -5px; top: 0; bottom: 0; width: 10px;
+            cursor: col-resize; z-index: 2;
+        }
+        .splitter-handle::after {
+            content: ''; position: absolute; left: 3px; top: 8px; bottom: 8px; width: 4px;
+            border-radius: 2px; background: rgba(255,255,255,.5);
+        }
+        .splitter-empty { display: none; }
+
+        .seg-colors-0 { background: #8B6914; }
+        .seg-colors-1 { background: #2E86AB; }
+        .seg-colors-2 { background: #A23B72; }
+        .seg-colors-3 { background: #F18F01; }
+        .seg-colors-4 { background: #3B7A57; }
+        .seg-colors-5 { background: #7B68EE; }
+
+        .client-block {
+            background: #fdfcf9; border: 1px solid #eee; border-radius: 10px; padding: 16px; margin-bottom: 12px;
+        }
+        .client-block-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .client-block-header select { flex: 1; max-width: 300px; }
+        .client-color-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+        .btn-remove {
+            background: none; border: none; cursor: pointer; font-size: 20px; color: #ccc; padding: 0 4px;
+            transition: color .15s;
+        }
+        .btn-remove:hover { color: #c0392b; }
+
+        .work-types { display: flex; flex-wrap: wrap; gap: 6px; }
+        .wt-chip {
+            display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 20px;
+            font-size: 13px; cursor: pointer; border: 1px solid #ddd; background: #fff;
+            transition: all .15s; user-select: none;
+        }
+        .wt-chip:hover { border-color: #8B6914; background: #fdf8ef; }
+        .wt-chip.selected { background: #fef3d0; border-color: #8B6914; color: #6B4F10; font-weight: 500; }
+        .wt-chip.secondary { color: #aaa; border-color: #eee; }
+        .wt-chip.secondary:hover { border-color: #ccc; color: #777; }
+        .wt-chip.secondary.selected { background: #f5f0e0; border-color: #bba050; color: #555; font-weight: 500; }
+        .more-toggle { font-size: 13px; color: #999; cursor: pointer; user-select: none; padding: 4px 0; margin-top: 6px; }
+        .more-toggle:hover { color: #666; }
+        .secondary-types { display: none; margin-top: 6px; }
+        .secondary-types.open { display: flex; flex-wrap: wrap; gap: 6px; }
+        .error-msg { color: #c0392b; text-align: center; margin-top: 8px; font-size: 14px; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="poop-bg" id="poopBg"></div>
+
+<div class="container">
+    <h1>TimeShit Generator</h1>
+
+    <div class="card">
+        <div class="row">
+            <div class="field">
+                <label>ФИО</label>
+                <select id="fio">
+                    <option selected>Алексахин Александр</option>
+                    <option>Банникова Ольга</option>
+                    <option>Баранова Анастасия</option>
+                    <option>Печенина Марина</option>
+                    <option>Сибгатуллин Антон</option>
+                    <option>Сосков Юрий</option>
+                    <option>Хоменко Ян Алексеевич</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>📅 Начало периода</label>
+                <input type="date" id="dateFrom">
+            </div>
+            <div class="field">
+                <label>📅 Конец периода</label>
+                <input type="date" id="dateTo">
+            </div>
+        </div>
+        <div class="sub-label">🏖️ Отпуска и дей-оффы</div>
+        <div class="row">
+            <div class="field"><label>С</label><input type="date" id="vacFrom"></div>
+            <div class="field"><label>По</label><input type="date" id="vacTo"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Выбери клиента и типы работ</h2>
+        <div id="clientBlocks"></div>
+        <button class="btn btn-add-client" onclick="addClientBlock()">+ добавить клиента</button>
+
+        <div class="splitter-wrap" id="splitterWrap" style="display:none; margin-top: 20px;">
+            <div class="splitter-label">📊 Распределение нагрузки — тяни границы</div>
+            <div class="splitter-bar" id="splitterBar"></div>
+        </div>
+    </div>
+
+    <div class="card" style="text-align:center">
+        <button class="btn btn-generate" onclick="generate()">Сгенерировать этот шит</button>
+        <div class="error-msg" id="errorMsg"></div>
+    </div>
+</div>
+
+<script>
+// Floating poops
+(function() {
+    const bg = document.getElementById('poopBg');
+    const poops = ['💩','💩','💩','🧻','💩','💩'];
+    for (let i = 0; i < 15; i++) {
+        const span = document.createElement('span');
+        span.textContent = poops[i % poops.length];
+        span.style.left = (Math.random() * 100) + '%';
+        span.style.animationDelay = (Math.random() * 20) + 's';
+        span.style.animationDuration = (15 + Math.random() * 15) + 's';
+        span.style.fontSize = (20 + Math.random() * 20) + 'px';
+        bg.appendChild(span);
+    }
+})();
+
+const SEG_COLORS = ['seg-colors-0','seg-colors-1','seg-colors-2','seg-colors-3','seg-colors-4','seg-colors-5'];
+const COLOR_HEX = ['#8B6914','#2E86AB','#A23B72','#F18F01','#3B7A57','#7B68EE'];
+
+const PRIMARY_WORK_TYPES = [
+    'Еженедельная отчетность','Работа с текущими размещениями (скриншоты, ЮТМ метки итп)',
+    'Коммуникация с менеджерами','Коммуникация с клиентом Маркетинг',
+    'Медиапланирование','Коммуникация с площадками','Подготовка предложений',
+    'Закрытие (коммуникация с коллегами)'
+];
+const SECONDARY_WORK_TYPES = [
+    'Стратегия','Презентации/Обоснования/аналитика','Коммуникация с клиентом Марком',
+    'Конф-колллы/статусы/созвоны ','Презентации (подготовка/защита)',
+    'Коммуникация по вопросам документооборота',
+    'ОРД / встречи и коммуникации','ОРД / регистрация креативов и коммуникация с подрядчиками',
+    'ОРД / загрузка данных в систему',
+    'ОРД / обучение и вебинары, составление обучающих материалов',
+    'ОРД / подготовка отчета для Клиента'
+];
+const PRIORITY_CLIENTS = ['Бифистим', 'Orimi', 'Альфа Банк'];
+const ALL_CLIENTS = [
+    'Бифистим','Orimi','Альфа Банк',
+    '"9:16"','100Б','ABBA РУС','Akzo Nobel','Bokassy','Chery Rus','Exeed','Ford','Funday',
+    'GIMC','HR','Happy Land','JTI','Jami','Jetour','LAB Industries','Lamoda','Loreal',
+    'LuxVisage','Madame Coco','NB','Nestle','Neurobox','OKKO','OOH мониторинг','OTCPharm',
+    'Omoda & Jaecoo','PARI','PR','Pepsi','Purina','Reckitt Benckiser','Redmond',
+    'Relevant','RnD','Sintec','SkillFactory','Skillbox','Sky Alliance','TENET','Trucker',
+    'Tutu','Unilin','Vivienne Sabo','Whiteleads','Winline','Абрау Дюрсо','Автоваз',
+    'Агроэко','Администрирование','Айзор','Академия ТОП',
+    'Бургер кинг','ВТБ','Верофарм','Детский мир','Ди энд Ди','Доктор Море','Дом.ру',
+    'Квадратный метр','Кинопоиск Спорт','Лемана Про','МТС','Мегафон','Медси','Мултон',
+    'ОТП банк','Обучение','Остин','Островок','Отелло','Перекресток','Площадки и партнеры',
+    'Проверка прошла','Русскарт','СДЭК','Самокат','СберСпасибо','Синергия',
+    'Снежная Королева','Сода','Соллерс','Солнце Москвы','Сотекс','Спортмастер','Т-Банк',
+    'Точка банк','УАЗ','УГМК','Улыбка радуги',
+    'Уральская горно-металлургическая компания','Фармстандарт','Хаусхерц Корпорэйшн',
+    'Центральный университет','Цирк','Чижик','ЭР-Телеком','Экофурил','ЮMoney'
+];
+const HOLIDAYS = new Set([
+    '2025-01-01','2025-01-02','2025-01-03','2025-01-04','2025-01-05','2025-01-06','2025-01-07','2025-01-08',
+    '2025-02-23','2025-03-08','2025-05-01','2025-05-02','2025-05-09','2025-06-12','2025-11-04',
+    '2026-01-01','2026-01-02','2026-01-03','2026-01-04','2026-01-05','2026-01-06','2026-01-07','2026-01-08',
+    '2026-02-23','2026-03-08','2026-03-09','2026-05-01','2026-05-02','2026-05-03','2026-05-04',
+    '2026-05-09','2026-05-10','2026-05-11','2026-06-12','2026-11-04',
+    '2027-01-01','2027-01-02','2027-01-03','2027-01-04','2027-01-05','2027-01-06','2027-01-07','2027-01-08',
+    '2027-02-23','2027-03-08','2027-05-01','2027-05-03','2027-05-09','2027-06-12','2027-11-04',
+]);
+
+// --- Splitter state ---
+let splitterShares = []; // array of { name, pct }
+
+function getActiveClients() {
+    const names = [];
+    document.querySelectorAll('.client-block .client-select').forEach(sel => {
+        if (sel.value) names.push(sel.value);
+    });
+    return names;
+}
+
+function rebuildSplitter() {
+    const clients = getActiveClients();
+    const wrap = document.getElementById('splitterWrap');
+    if (clients.length < 2) { wrap.style.display = 'none'; splitterShares = clients.map(c => ({name:c, pct:100})); return; }
+    wrap.style.display = 'block';
+
+    // Preserve existing shares where possible, distribute evenly for new ones
+    const oldMap = {};
+    splitterShares.forEach(s => { oldMap[s.name] = s.pct; });
+    const newClients = clients.filter(c => !(c in oldMap));
+    const keptClients = clients.filter(c => c in oldMap);
+
+    if (newClients.length === clients.length) {
+        // All new — even split
+        const even = Math.floor(100 / clients.length);
+        splitterShares = clients.map((c, i) => ({ name: c, pct: i === 0 ? 100 - even * (clients.length - 1) : even }));
+    } else {
+        // Give new clients fair share, shrink old proportionally
+        const shareForNew = Math.floor(100 / clients.length) * newClients.length;
+        const oldTotal = keptClients.reduce((s, c) => s + oldMap[c], 0);
+        const scale = oldTotal > 0 ? (100 - shareForNew) / oldTotal : 1;
+        splitterShares = clients.map(c => {
+            if (c in oldMap) return { name: c, pct: Math.round(oldMap[c] * scale) };
+            return { name: c, pct: Math.floor(shareForNew / newClients.length) };
+        });
+        // Fix rounding
+        const total = splitterShares.reduce((s, x) => s + x.pct, 0);
+        if (total !== 100) splitterShares[0].pct += 100 - total;
+    }
+
+    renderSplitter();
+}
+
+function renderSplitter() {
+    const bar = document.getElementById('splitterBar');
+    bar.innerHTML = '';
+    splitterShares.forEach((s, i) => {
+        const seg = document.createElement('div');
+        seg.className = 'splitter-seg ' + SEG_COLORS[i % SEG_COLORS.length];
+        seg.style.width = s.pct + '%';
+        seg.innerHTML = `<span class="seg-label">${s.name} ${s.pct}%</span>`;
+        // Add drag handle (not on last segment)
+        if (i < splitterShares.length - 1) {
+            const handle = document.createElement('div');
+            handle.className = 'splitter-handle';
+            handle.dataset.idx = i;
+            handle.addEventListener('mousedown', startDrag);
+            handle.addEventListener('touchstart', startDrag, { passive: false });
+            seg.appendChild(handle);
+        }
+        bar.appendChild(seg);
+    });
+
+    // Update color dots on client blocks
+    document.querySelectorAll('.client-block').forEach(block => {
+        const name = block.querySelector('.client-select').value;
+        const dot = block.querySelector('.client-color-dot');
+        const idx = splitterShares.findIndex(s => s.name === name);
+        if (dot) dot.style.background = idx >= 0 ? COLOR_HEX[idx % COLOR_HEX.length] : '#ccc';
+    });
+}
+
+let dragIdx = -1;
+function startDrag(e) {
+    e.preventDefault();
+    dragIdx = parseInt(e.currentTarget.dataset.idx);
+    document.addEventListener('mousemove', onDrag);
+    document.addEventListener('mouseup', stopDrag);
+    document.addEventListener('touchmove', onDrag, { passive: false });
+    document.addEventListener('touchend', stopDrag);
+}
+function onDrag(e) {
+    if (dragIdx < 0) return;
+    e.preventDefault();
+    const bar = document.getElementById('splitterBar');
+    const rect = bar.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+    const totalPctBefore = splitterShares.slice(0, dragIdx).reduce((s, x) => s + x.pct, 0);
+    const combinedPct = splitterShares[dragIdx].pct + splitterShares[dragIdx + 1].pct;
+    const newLeftPct = Math.round((x / rect.width) * 100) - totalPctBefore;
+    const clamped = Math.max(5, Math.min(combinedPct - 5, newLeftPct));
+    splitterShares[dragIdx].pct = clamped;
+    splitterShares[dragIdx + 1].pct = combinedPct - clamped;
+    renderSplitter();
+}
+function stopDrag() {
+    dragIdx = -1;
+    document.removeEventListener('mousemove', onDrag);
+    document.removeEventListener('mouseup', stopDrag);
+    document.removeEventListener('touchmove', onDrag);
+    document.removeEventListener('touchend', stopDrag);
+}
+
+// --- Client blocks ---
+function clientOptionsHtml() {
+    let html = '<option value="">— выбери клиента —</option>';
+    html += '<optgroup label="⭐ Основные">';
+    PRIORITY_CLIENTS.forEach(c => { html += `<option value="${c}">${c}</option>`; });
+    html += '</optgroup><optgroup label="Все клиенты">';
+    ALL_CLIENTS.forEach(c => { if (!PRIORITY_CLIENTS.includes(c)) html += `<option value="${c}">${c}</option>`; });
+    html += '</optgroup>';
+    return html;
+}
+
+let blockCounter = 0;
+function addClientBlock() {
+    const container = document.getElementById('clientBlocks');
+    const id = blockCounter++;
+    const block = document.createElement('div');
+    block.className = 'client-block';
+    block.id = 'cblock-' + id;
+    block.innerHTML = `
+        <div class="client-block-header">
+            <div class="client-color-dot" style="background:#ccc"></div>
+            <select class="client-select" onchange="onClientChange()">${clientOptionsHtml()}</select>
+            <button class="btn-remove" onclick="removeClientBlock(this)" title="Убрать">×</button>
+        </div>
+        <div class="work-types-area" style="display:none">
+            <div class="work-types">
+                ${PRIMARY_WORK_TYPES.map(wt => `<div class="wt-chip" data-wt="${wt}" onclick="toggleChip(this)">${wt.trim()}</div>`).join('')}
+            </div>
+            <div class="more-toggle" onclick="toggleMore(this)">ещё типы работ ▸</div>
+            <div class="secondary-types">
+                ${SECONDARY_WORK_TYPES.map(wt => `<div class="wt-chip secondary" data-wt="${wt}" onclick="toggleChip(this)">${wt.trim()}</div>`).join('')}
+            </div>
+        </div>
+    `;
+    container.appendChild(block);
+}
+
+function removeClientBlock(btn) {
+    btn.closest('.client-block').remove();
+    rebuildSplitter();
+}
+
+function onClientChange() {
+    // Show/hide work types areas
+    document.querySelectorAll('.client-block').forEach(block => {
+        const sel = block.querySelector('.client-select');
+        block.querySelector('.work-types-area').style.display = sel.value ? 'block' : 'none';
+    });
+    rebuildSplitter();
+}
+
+function toggleChip(el) { el.classList.toggle('selected'); }
+function toggleMore(el) {
+    const sec = el.nextElementSibling;
+    const open = !sec.classList.contains('open');
+    sec.classList.toggle('open', open);
+    el.textContent = open ? 'скрыть ▾' : 'ещё типы работ ▸';
+}
+
+// --- Generation ---
+function fmtDateKey(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function isWorkday(d) {
+    const dow = d.getDay();
+    if (dow === 0 || dow === 6) return false;
+    return !HOLIDAYS.has(fmtDateKey(d));
+}
+function weightedRandom(options, weights) {
+    const total = weights.reduce((a, b) => a + b, 0);
+    let r = Math.random() * total;
+    for (let i = 0; i < options.length; i++) { r -= weights[i]; if (r <= 0) return options[i]; }
+    return options[options.length - 1];
+}
+function shuffleArray(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+    return a;
+}
+function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.textContent = msg; el.style.display = msg ? 'block' : 'none';
+}
+
+function generate() {
+    showError('');
+    try {
+        if (typeof XLSX === 'undefined') { showError('Библиотека XLSX не загрузилась. Проверь интернет и перезагрузи страницу.'); return; }
+
+        const fio = document.getElementById('fio').value;
+        const dateFrom = document.getElementById('dateFrom').value;
+        const dateTo = document.getElementById('dateTo').value;
+        if (!dateFrom || !dateTo) { showError('Выбери период 📅'); return; }
+
+        const vacFromVal = document.getElementById('vacFrom').value;
+        const vacToVal = document.getElementById('vacTo').value;
+        const vacFrom = vacFromVal ? new Date(vacFromVal + 'T00:00:00') : null;
+        const vacTo = vacToVal ? new Date(vacToVal + 'T00:00:00') : null;
+
+        // Build share map from splitter
+        const shareMap = {};
+        splitterShares.forEach(s => { shareMap[s.name] = s.pct; });
+
+        // Collect pairs with weights from splitter
+        const pairs = [];
+        document.querySelectorAll('.client-block').forEach(block => {
+            const clientName = block.querySelector('.client-select').value;
+            if (!clientName) return;
+            const chips = block.querySelectorAll('.wt-chip.selected');
+            if (chips.length === 0) return;
+            const clientPct = shareMap[clientName] || (100 / getActiveClients().length);
+            const wPerPair = clientPct / chips.length;
+            chips.forEach(chip => {
+                pairs.push({ client: clientName, workType: chip.dataset.wt, tender: clientName === 'Администрирование' ? '' : 'Клиент', weight: wPerPair });
+            });
+        });
+        if (pairs.length === 0) { showError('Тыкни хотя бы один тип работ 👆'); return; }
+
+        // Working days
+        const start = new Date(dateFrom + 'T00:00:00'), end = new Date(dateTo + 'T00:00:00');
+        const workdays = [];
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            if (!isWorkday(d)) continue;
+            if (vacFrom && vacTo && d >= vacFrom && d <= vacTo) continue;
+            workdays.push(new Date(d));
+        }
+        if (workdays.length === 0) { showError('В этом периоде нет рабочих дней 🤷'); return; }
+
+        const FIXED = {
+            1: [{ client: 'Администрирование', tender: '', workType: 'Конф-колллы/статусы/созвоны ', hours: 1 }],
+            3: [{ client: 'Orimi', tender: 'Клиент', workType: 'Конф-колллы/статусы/созвоны ', hours: 1 }],
+            4: [
+                { client: 'Бифистим', tender: 'Клиент', workType: 'Конф-колллы/статусы/созвоны ', hours: 1 },
+                { client: 'Администрирование', tender: '', workType: 'Конф-колллы/статусы/созвоны ', hours: 1 }
+            ]
+        };
+
+        const rows = [];
+        workdays.forEach(day => {
+            const dow = day.getDay();
+            const targetHours = weightedRandom([8, 9, 10], [65, 25, 10]);
+            const fixedTasks = FIXED[dow] || [];
+            const fixedHours = fixedTasks.reduce((s, t) => s + t.hours, 0);
+            fixedTasks.forEach(t => { rows.push({ fio, date: new Date(day), client: t.client, tender: t.tender, workType: t.workType, hours: t.hours }); });
+
+            let remaining = targetHours - fixedHours;
+            if (remaining <= 0) return;
+
+            let todayPairs;
+            if (pairs.length <= 3) { todayPairs = [...pairs]; }
+            else {
+                const count = weightedRandom([2, 3], [40, 60]);
+                todayPairs = [];
+                const pool = [...pairs];
+                for (let i = 0; i < Math.min(count, pool.length); i++) {
+                    const wts = pool.map(p => p.weight);
+                    const tot = wts.reduce((a,b)=>a+b,0);
+                    let r = Math.random()*tot, idx=0;
+                    for (; idx < wts.length-1; idx++) { r -= wts[idx]; if (r<=0) break; }
+                    todayPairs.push(pool[idx]);
+                    pool.splice(idx, 1);
+                }
+            }
+
+            const tw = todayPairs.reduce((s,p) => s+p.weight, 0);
+            let allocated = todayPairs.map(p => Math.max(1, Math.round(remaining * p.weight / tw)));
+            let sum = allocated.reduce((a,b) => a+b, 0);
+            while (sum > remaining) { const mi = allocated.indexOf(Math.max(...allocated)); if(allocated[mi]<=1)break; allocated[mi]--; sum--; }
+            while (sum < remaining) { const mi = allocated.indexOf(Math.min(...allocated)); allocated[mi]++; sum++; }
+
+            todayPairs.forEach((p, i) => {
+                if (allocated[i] > 0) rows.push({ fio, date: new Date(day), client: p.client, tender: p.tender, workType: p.workType, hours: allocated[i] });
+            });
+        });
+
+        function dateToExcelSerial(d) { return Math.round((d - new Date(1899,11,30)) / 86400000); }
+
+        const wsData = [['ФИО','Дата','Клиент','Тендер/клиент','Тип работ','Часы','Комментарий','Юнит']];
+        rows.forEach(r => { wsData.push([r.fio, dateToExcelSerial(r.date), r.client, r.tender, r.workType, r.hours, '', 'PLC']); });
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        for (let r = 1; r < wsData.length; r++) {
+            const addr = XLSX.utils.encode_cell({r,c:1});
+            if (ws[addr]) { ws[addr].z = 'mm-dd-yy'; ws[addr].t = 'n'; }
+        }
+        ws['!cols'] = [{wch:25},{wch:12},{wch:20},{wch:15},{wch:55},{wch:8},{wch:15},{wch:8}];
+        XLSX.utils.book_append_sheet(wb, ws, 'Сотрудник');
+        XLSX.writeFile(wb, fio + '.xlsx');
+    } catch (e) {
+        showError('Что-то пошло не так 💩: ' + e.message);
+        console.error(e);
+    }
+}
+
+// Init
+addClientBlock();
+</script>
+</body>
+</html>
