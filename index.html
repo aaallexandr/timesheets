@@ -25,13 +25,15 @@
         h1 { text-align: center; margin-bottom: 20px; font-size: 28px; font-weight: 700; }
         .card { background: #fff; border-radius: 12px; padding: 24px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
         .card h2 { font-size: 16px; margin-bottom: 16px; color: #666; font-weight: 600; }
-        .row { display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
+        .row { display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; align-items: flex-end; }
         .field { display: flex; flex-direction: column; gap: 4px; }
         .field label { font-size: 13px; color: #777; font-weight: 500; }
-        select, input[type="date"] {
+        select, input[type="date"], input[type="number"], input[type="text"] {
             padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px;
             background: #fff; min-width: 180px;
         }
+        input[type="number"] { min-width: 80px; width: 80px; }
+        input[type="text"] { min-width: 200px; }
         select:focus, input:focus { outline: none; border-color: #8B6914; }
         .sub-label { font-size: 14px; color: #888; font-weight: 500; margin-top: 8px; margin-bottom: 8px; }
 
@@ -45,6 +47,18 @@
         .btn-generate:active { transform: translateY(0); }
         .btn-add-client { background: #f5f0e0; color: #8B6914; margin-top: 12px; }
         .btn-add-client:hover { background: #efe8d0; }
+
+        .btn-small {
+            padding: 6px 12px; border: none; border-radius: 8px; cursor: pointer; font-size: 18px;
+            font-weight: 500; background: #f5f0e0; color: #8B6914; line-height: 1;
+        }
+        .btn-small:hover { background: #efe8d0; }
+        .btn-small.remove { color: #c0392b; background: #fde8e8; }
+        .btn-small.remove:hover { background: #f9d0d0; }
+
+        /* Vacation rows */
+        .vac-row { display: flex; gap: 12px; align-items: flex-end; margin-bottom: 8px; flex-wrap: wrap; }
+        .vac-row .field input { min-width: 150px; }
 
         /* Splitter bar */
         .splitter-wrap { margin-bottom: 20px; }
@@ -104,6 +118,18 @@
         .secondary-types { display: none; margin-top: 6px; }
         .secondary-types.open { display: flex; flex-wrap: wrap; gap: 6px; }
         .error-msg { color: #c0392b; text-align: center; margin-top: 8px; font-size: 14px; display: none; }
+
+        /* Settings */
+        .settings-toggle {
+            font-size: 13px; color: #999; cursor: pointer; user-select: none; text-align: center;
+            margin-bottom: 16px;
+        }
+        .settings-toggle:hover { color: #666; }
+        .settings-body { display: none; }
+        .settings-body.open { display: block; }
+        .fav-client-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+        .fav-client-row input { flex: 1; }
+        .hint { font-size: 12px; color: #bbb; margin-top: 4px; }
     </style>
 </head>
 <body>
@@ -137,9 +163,9 @@
             </div>
         </div>
         <div class="sub-label">🏖️ Отпуска и дей-оффы</div>
-        <div class="row">
-            <div class="field"><label>С</label><input type="date" id="vacFrom"></div>
-            <div class="field"><label>По</label><input type="date" id="vacTo"></div>
+        <div id="vacContainer"></div>
+        <div style="text-align: right; margin-top: 4px;">
+            <button class="btn-small" onclick="addVacRow()" title="Добавить период">+</button>
         </div>
     </div>
 
@@ -149,14 +175,38 @@
         <button class="btn btn-add-client" onclick="addClientBlock()">+ добавить клиента</button>
 
         <div class="splitter-wrap" id="splitterWrap" style="display:none; margin-top: 20px;">
-            <div class="splitter-label">📊 Распределение нагрузки — тяни границы</div>
+            <div class="splitter-label">📊 Примерно распредели нагрузку между клиентами — тяни границы</div>
             <div class="splitter-bar" id="splitterBar"></div>
         </div>
     </div>
 
     <div class="card" style="text-align:center">
-        <button class="btn btn-generate" onclick="generate()">Сгенерировать этот шит</button>
+        <button class="btn btn-generate" onclick="generate()">💩 Скачать шит</button>
         <div class="error-msg" id="errorMsg"></div>
+    </div>
+
+    <div class="settings-toggle" onclick="toggleSettings()">⚙️ Настройки ▸</div>
+    <div class="card settings-body" id="settingsBody">
+        <h2>⚙️ Настройки</h2>
+        <div style="margin-bottom: 20px;">
+            <div class="sub-label">⏱️ Границы часов в день</div>
+            <div class="row">
+                <div class="field">
+                    <label>Минимум</label>
+                    <input type="number" id="minHours" value="8" min="1" max="24">
+                </div>
+                <div class="field">
+                    <label>Максимум</label>
+                    <input type="number" id="maxHours" value="11" min="1" max="24">
+                </div>
+            </div>
+        </div>
+        <div>
+            <div class="sub-label">⭐ Избранные клиенты</div>
+            <div class="hint">Добавляются в начало списка клиентов</div>
+            <div id="favClientsContainer" style="margin-top: 8px;"></div>
+            <button class="btn-small" onclick="addFavClientRow()" title="Добавить клиента в избранное" style="margin-top: 6px;">+</button>
+        </div>
     </div>
 </div>
 
@@ -194,7 +244,7 @@ const SECONDARY_WORK_TYPES = [
     'ОРД / обучение и вебинары, составление обучающих материалов',
     'ОРД / подготовка отчета для Клиента'
 ];
-const PRIORITY_CLIENTS = ['Бифистим', 'Orimi', 'Альфа Банк'];
+const DEFAULT_PRIORITY_CLIENTS = ['Бифистим', 'Orimi', 'Альфа Банк'];
 const ALL_CLIENTS = [
     'Бифистим','Orimi','Альфа Банк',
     '"9:16"','100Б','ABBA РУС','Akzo Nobel','Bokassy','Chery Rus','Exeed','Ford','Funday',
@@ -223,6 +273,94 @@ const HOLIDAYS = new Set([
     '2027-02-23','2027-03-08','2027-05-01','2027-05-03','2027-05-09','2027-06-12','2027-11-04',
 ]);
 
+// --- Settings persistence ---
+function loadSettings() {
+    try {
+        const s = JSON.parse(localStorage.getItem('timeshit_settings') || '{}');
+        return s;
+    } catch { return {}; }
+}
+function saveSettings() {
+    const favs = [];
+    document.querySelectorAll('.fav-client-input').forEach(inp => {
+        if (inp.value.trim()) favs.push(inp.value.trim());
+    });
+    const s = {
+        minHours: parseInt(document.getElementById('minHours').value) || 8,
+        maxHours: parseInt(document.getElementById('maxHours').value) || 11,
+        favClients: favs
+    };
+    localStorage.setItem('timeshit_settings', JSON.stringify(s));
+    refreshAllClientSelects();
+}
+
+function getFavClients() {
+    const s = loadSettings();
+    return s.favClients || [];
+}
+
+function getPriorityClients() {
+    const favs = getFavClients();
+    const combined = [...favs];
+    DEFAULT_PRIORITY_CLIENTS.forEach(c => { if (!combined.includes(c)) combined.push(c); });
+    return combined;
+}
+
+// --- Settings UI ---
+function toggleSettings() {
+    const body = document.getElementById('settingsBody');
+    const toggle = document.querySelector('.settings-toggle');
+    const open = !body.classList.contains('open');
+    body.classList.toggle('open', open);
+    toggle.textContent = open ? '⚙️ Настройки ▾' : '⚙️ Настройки ▸';
+}
+
+function addFavClientRow(value) {
+    const container = document.getElementById('favClientsContainer');
+    const row = document.createElement('div');
+    row.className = 'fav-client-row';
+    row.innerHTML = `<input type="text" class="fav-client-input" placeholder="Название клиента" value="${value || ''}" onchange="saveSettings()">
+        <button class="btn-small remove" onclick="this.parentElement.remove(); saveSettings();">×</button>`;
+    container.appendChild(row);
+}
+
+function initSettings() {
+    const s = loadSettings();
+    if (s.minHours) document.getElementById('minHours').value = s.minHours;
+    if (s.maxHours) document.getElementById('maxHours').value = s.maxHours;
+    (s.favClients || []).forEach(c => addFavClientRow(c));
+}
+
+document.getElementById('minHours').addEventListener('change', saveSettings);
+document.getElementById('maxHours').addEventListener('change', saveSettings);
+
+// --- Vacation periods ---
+function addVacRow() {
+    const container = document.getElementById('vacContainer');
+    const row = document.createElement('div');
+    row.className = 'vac-row';
+    row.innerHTML = `<div class="field"><label>С</label><input type="date" class="vac-from"></div>
+        <div class="field"><label>По</label><input type="date" class="vac-to"></div>
+        <button class="btn-small remove" onclick="this.parentElement.remove()" title="Убрать">×</button>`;
+    container.appendChild(row);
+}
+
+function getVacationPeriods() {
+    const periods = [];
+    document.querySelectorAll('.vac-row').forEach(row => {
+        const from = row.querySelector('.vac-from').value;
+        const to = row.querySelector('.vac-to').value;
+        if (from && to) {
+            periods.push({ from: new Date(from + 'T00:00:00'), to: new Date(to + 'T00:00:00') });
+        }
+    });
+    return periods;
+}
+
+function isOnVacation(d, periods) {
+    return periods.some(p => d >= p.from && d <= p.to);
+}
+
 // --- Splitter state ---
 let splitterShares = []; // array of { name, pct }
 
@@ -240,18 +378,15 @@ function rebuildSplitter() {
     if (clients.length < 2) { wrap.style.display = 'none'; splitterShares = clients.map(c => ({name:c, pct:100})); return; }
     wrap.style.display = 'block';
 
-    // Preserve existing shares where possible, distribute evenly for new ones
     const oldMap = {};
     splitterShares.forEach(s => { oldMap[s.name] = s.pct; });
     const newClients = clients.filter(c => !(c in oldMap));
     const keptClients = clients.filter(c => c in oldMap);
 
     if (newClients.length === clients.length) {
-        // All new — even split
         const even = Math.floor(100 / clients.length);
         splitterShares = clients.map((c, i) => ({ name: c, pct: i === 0 ? 100 - even * (clients.length - 1) : even }));
     } else {
-        // Give new clients fair share, shrink old proportionally
         const shareForNew = Math.floor(100 / clients.length) * newClients.length;
         const oldTotal = keptClients.reduce((s, c) => s + oldMap[c], 0);
         const scale = oldTotal > 0 ? (100 - shareForNew) / oldTotal : 1;
@@ -259,7 +394,6 @@ function rebuildSplitter() {
             if (c in oldMap) return { name: c, pct: Math.round(oldMap[c] * scale) };
             return { name: c, pct: Math.floor(shareForNew / newClients.length) };
         });
-        // Fix rounding
         const total = splitterShares.reduce((s, x) => s + x.pct, 0);
         if (total !== 100) splitterShares[0].pct += 100 - total;
     }
@@ -275,7 +409,6 @@ function renderSplitter() {
         seg.className = 'splitter-seg ' + SEG_COLORS[i % SEG_COLORS.length];
         seg.style.width = s.pct + '%';
         seg.innerHTML = `<span class="seg-label">${s.name} ${s.pct}%</span>`;
-        // Add drag handle (not on last segment)
         if (i < splitterShares.length - 1) {
             const handle = document.createElement('div');
             handle.className = 'splitter-handle';
@@ -287,7 +420,6 @@ function renderSplitter() {
         bar.appendChild(seg);
     });
 
-    // Update color dots on client blocks
     document.querySelectorAll('.client-block').forEach(block => {
         const name = block.querySelector('.client-select').value;
         const dot = block.querySelector('.client-color-dot');
@@ -330,13 +462,22 @@ function stopDrag() {
 
 // --- Client blocks ---
 function clientOptionsHtml() {
+    const priority = getPriorityClients();
     let html = '<option value="">— выбери клиента —</option>';
-    html += '<optgroup label="⭐ Основные">';
-    PRIORITY_CLIENTS.forEach(c => { html += `<option value="${c}">${c}</option>`; });
+    html += '<optgroup label="⭐ Избранные">';
+    priority.forEach(c => { html += `<option value="${c}">${c}</option>`; });
     html += '</optgroup><optgroup label="Все клиенты">';
-    ALL_CLIENTS.forEach(c => { if (!PRIORITY_CLIENTS.includes(c)) html += `<option value="${c}">${c}</option>`; });
+    ALL_CLIENTS.forEach(c => { if (!priority.includes(c)) html += `<option value="${c}">${c}</option>`; });
     html += '</optgroup>';
     return html;
+}
+
+function refreshAllClientSelects() {
+    document.querySelectorAll('.client-block .client-select').forEach(sel => {
+        const val = sel.value;
+        sel.innerHTML = clientOptionsHtml();
+        sel.value = val;
+    });
 }
 
 let blockCounter = 0;
@@ -371,7 +512,6 @@ function removeClientBlock(btn) {
 }
 
 function onClientChange() {
-    // Show/hide work types areas
     document.querySelectorAll('.client-block').forEach(block => {
         const sel = block.querySelector('.client-select');
         block.querySelector('.work-types-area').style.display = sel.value ? 'block' : 'none';
@@ -422,10 +562,19 @@ function generate() {
         const dateTo = document.getElementById('dateTo').value;
         if (!dateFrom || !dateTo) { showError('Выбери период 📅'); return; }
 
-        const vacFromVal = document.getElementById('vacFrom').value;
-        const vacToVal = document.getElementById('vacTo').value;
-        const vacFrom = vacFromVal ? new Date(vacFromVal + 'T00:00:00') : null;
-        const vacTo = vacToVal ? new Date(vacToVal + 'T00:00:00') : null;
+        const vacPeriods = getVacationPeriods();
+
+        const settings = loadSettings();
+        const minH = settings.minHours || 8;
+        const maxH = settings.maxHours || 11;
+        // Build hour options with weights (lower hours more likely)
+        const hourOptions = [];
+        const hourWeights = [];
+        for (let h = minH; h <= maxH; h++) {
+            hourOptions.push(h);
+            hourWeights.push(h === minH ? 60 : h === minH + 1 ? 25 : 10);
+        }
+        if (hourOptions.length === 0) { hourOptions.push(8); hourWeights.push(100); }
 
         // Build share map from splitter
         const shareMap = {};
@@ -451,7 +600,7 @@ function generate() {
         const workdays = [];
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
             if (!isWorkday(d)) continue;
-            if (vacFrom && vacTo && d >= vacFrom && d <= vacTo) continue;
+            if (isOnVacation(d, vacPeriods)) continue;
             workdays.push(new Date(d));
         }
         if (workdays.length === 0) { showError('В этом периоде нет рабочих дней 🤷'); return; }
@@ -468,7 +617,7 @@ function generate() {
         const rows = [];
         workdays.forEach(day => {
             const dow = day.getDay();
-            const targetHours = weightedRandom([8, 9, 10], [65, 25, 10]);
+            const targetHours = weightedRandom(hourOptions, hourWeights);
             const fixedTasks = FIXED[dow] || [];
             const fixedHours = fixedTasks.reduce((s, t) => s + t.hours, 0);
             fixedTasks.forEach(t => { rows.push({ fio, date: new Date(day), client: t.client, tender: t.tender, workType: t.workType, hours: t.hours }); });
@@ -516,7 +665,16 @@ function generate() {
         }
         ws['!cols'] = [{wch:25},{wch:12},{wch:20},{wch:15},{wch:55},{wch:8},{wch:15},{wch:8}];
         XLSX.utils.book_append_sheet(wb, ws, 'Сотрудник');
-        XLSX.writeFile(wb, fio + '.xlsx');
+        const wbout = XLSX.write(wb, {bookType: 'xlsx', type: 'array'});
+        const blob = new Blob([wbout], {type: 'application/octet-stream'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fio + '.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     } catch (e) {
         showError('Что-то пошло не так 💩: ' + e.message);
         console.error(e);
@@ -524,6 +682,8 @@ function generate() {
 }
 
 // Init
+initSettings();
+addVacRow();
 addClientBlock();
 </script>
 </body>
